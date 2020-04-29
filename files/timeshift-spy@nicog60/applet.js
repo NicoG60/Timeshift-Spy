@@ -1,8 +1,16 @@
 // Imports
-const Applet = imports.ui.applet;
-const GLib   = imports.gi.GLib;
-const Gio    = imports.gi.Gio;
-const Json   = imports.gi.Json
+const Applet    = imports.ui.applet;
+const GLib      = imports.gi.GLib;
+const Gio       = imports.gi.Gio;
+const Json      = imports.gi.Json;
+const PopupMenu = imports.ui.popupMenu;
+const Gettext   = imports.gettext;
+
+// Get text boilerplate
+Gettext.textdomain("timeshift-spy@nicog60");
+Gettext.bindtextdomain("timeshift-spy@nicog60n", GLib.get_home_dir() + '/.local/share/locale');
+
+const _ = Gettext.gettext;
 
 /**
  * This applet aim to quickly display de status of Timeshift, even if it is
@@ -47,6 +55,16 @@ class TimeshiftSpy extends Applet.IconApplet {
         this.check_if_snapping = this.check_if_snapping.bind(this)
         this.check_if_ended = this.check_if_ended.bind(this)
         this.update_icon = this.update_icon.bind(this)
+        this.make_snapshot = this.make_snapshot.bind(this)
+
+        // Create the menu
+        this.menu = new Applet.AppletPopupMenu(this, orientation)
+        let menuItem = new PopupMenu.PopupMenuItem(_('Make a new snapshot'))
+        menuItem.connect('activate', () => this.make_snapshot())
+        this.menu.addMenuItem(menuItem)
+
+    	this.menuManager = new PopupMenu.PopupMenuManager(this);
+    	this.menuManager.addMenu(this.menu);
 
         // Set the initial state to IDLE.
         this.set_state(IDLE)
@@ -55,6 +73,16 @@ class TimeshiftSpy extends Applet.IconApplet {
         // We'll get notified when a device is mounted
         Gio.VolumeMonitor.get().connect('mount-added', (v) => this.check_backup_device() )
         Gio.VolumeMonitor.get().connect('mount-removed', (v) => this.check_backup_device() )
+    }
+
+    /**
+     * Called when the applet icon is clicked.
+     * If the state is WAIT_FOR_SNAP, which means the backup device is connected
+     * and not making a snapshot, toggle a menu that shows a "make snapshot".
+     */
+    on_applet_clicked() {
+    	if(this.state === WAIT_FOR_SNAP)
+    		this.menu.toggle()
     }
 
     /**
@@ -210,6 +238,7 @@ class TimeshiftSpy extends Applet.IconApplet {
         {
             this.state = state
             this.clear_all()
+            this.check_menu()
             this.start(state)
         }
     }
@@ -269,25 +298,42 @@ class TimeshiftSpy extends Applet.IconApplet {
         switch(state) {
             case IDLE:
             this.set_applet_icon_name('timeshift-idle')
-            this.set_applet_tooltip('Backup device not found')
+            this.set_applet_tooltip(_('Backup device not found'))
             this.idle_timer = setInterval(this.reload_config, 60000)
             this.reload_config()
             break
 
             case WAIT_FOR_SNAP:
             this.set_applet_icon_name('timeshift-wait')
-            this.set_applet_tooltip('Wait for snapshot to begin')
-            this.wait_timer = setInterval(this.check_if_snapping, 2500)
+            this.set_applet_tooltip(_('Wait for snapshot to begin'))
+            this.wait_timer = setInterval(this.check_if_snapping, 1000)
             this.check_if_snapping()
             break
 
             case SNAPPING:
-            this.set_applet_tooltip('Making snapshot...')
+            this.set_applet_tooltip(_('Making snapshot...'))
             this.snap_timer = setInterval(this.check_if_ended, 500)
             this.check_if_ended()
             this.icon_timer = setInterval(this.update_icon, 50)
             break
         }
+    }
+
+    /**
+     * Ask for password, as timeshift requires root privileges, and make a new
+     * snapshot.
+     */
+    make_snapshot() {
+    	GLib.spawn_command_line_async('pkexec timeshift --create')
+    }
+
+    /**
+     * Checks if the menu needs to be closed. If the backup device is not
+     * connected or if a snapshot is being made, then close the menu.
+     */
+    check_menu() {
+    	if(this.state !== WAIT_FOR_SNAP && this.menu.isOpen)
+    		this.menu.close()
     }
 }
 
