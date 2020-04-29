@@ -12,3 +12,7 @@ The applet shows:
 - a spinning 'sync' icon while a snapshot is being made.
 
 It also has a menu shortcut to create a new snapshot.
+
+---
+
+[GitHub](https://github.com/NicoG60) - [Original repo](https://github.com/NicoG60/Timeshift-Spy)
