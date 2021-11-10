@@ -1,6 +1,6 @@
 ### 1.5
 
-- Fix config file location change.
+- Fix config file location change. (Thanks to @amithiel)
 
 ### 1.4
 
